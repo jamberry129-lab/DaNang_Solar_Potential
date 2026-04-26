@@ -1,7 +1,10 @@
 # Da Nang, Vietnam — Building Rooftop Solar Potential
 
 This repository contains a rooftop solar PV potential analysis for **Da Nang, Vietnam**.  
-The analysis is adapted from [Grinberg (2022)](https://github.com/Einavg7/Rosario_Solar_Potential) — *Estimating building rooftop solar potential in a city from a developing country*.
+This repository contains a rooftop solar PV potential analysis for **Da Nang, Vietnam**.  
+The analysis adapts the spatial sampling methodology introduced by 
+[Gagnon et al. (2016)](https://docs.nrel.gov/docs/fy16osti/65298.pdf) 
+for large-scale rooftop solar PV potential assessmentt*.
 
 ## Repository structure
 
@@ -10,7 +13,7 @@ The analysis is adapted from [Grinberg (2022)](https://github.com/Einavg7/Rosari
    Solar data from [Global Solar Atlas](https://globalsolaratlas.info) (World Bank).  
    Land cover strata from [Copernicus LULC 2015](https://land.copernicus.eu).  
    Built with [jQuery](https://jquery.com) + [Leaflet](https://leafletjs.com). Hosted on [GitHub Pages](https://pages.github.com).  
-   🌐 **Web map: [Click here](https://[username].github.io/DaNang_Solar_Potential)**
+    🌐 **Web map: [Click here](https://jamberry129-lab.github.io/DaNang_Solar_Potential)**
 
 2. The `data/` folder contains the building polygon layer for the web map (`danang_solar.geojson`).
 
@@ -55,14 +58,21 @@ R sampling analysis:
 Leaflet web map (index.html) → GitHub Pages
 ```
 
+
 ## Practical Applications
 
 - 🏙️ Xác định khu vực có tiềm năng điện mặt trời áp mái cao chưa được khai thác
+  *(Identify areas with high untapped rooftop solar PV potential)*
 - 📊 So sánh tiềm năng lý thuyết với số liệu lắp đặt thực tế (EVN)
+  *(Compare theoretical potential against actual deployment data from EVN)*
 - 🏛️ Hỗ trợ quy hoạch năng lượng tái tạo cấp tỉnh/thành
+  *(Support provincial renewable energy planning)*
 - 🎓 Nghiên cứu học thuật về năng lượng tái tạo đô thị tại Việt Nam
+  *(Academic research on urban renewable energy in Vietnam)*
 - 💼 Hỗ trợ nhà đầu tư điện mặt trời áp mái
-- 🌏 Framework có thể nhân rộng cho các đô thị ASEAN khác
+  *(Guide rooftop solar investors to high-potential areas)*
+- 🌏 Framework có thể nhân rộng cho các đô thị, vùng khác
+  *(Replicable framework for other cities and regions in Southeast Asia)*
 
 ## Data Sources
 
@@ -84,7 +94,10 @@ Leaflet web map (index.html) → GitHub Pages
 
 ## References
 
-- Grinberg, E. (2022). *Estimating building rooftop solar potential in a city from a developing country*. MSc Thesis.
+-  Gagnon, P., Margolis, R., Melius, J., Phillips, C., & Elmore, R. (2016).
+> *Rooftop Solar Photovoltaic Technical Potential in the United States: A Detailed Assessment.*
+> Technical Report NREL/TP-6A20-65298. National Renewable Energy Laboratory.
+> [Download PDF](https://docs.nrel.gov/docs/fy16osti/65298.pdf).
 - Thompson, S. K. (2012). *Sampling* (3rd ed.). Wiley.
 - Global Solar Atlas 2.0, Solargis / World Bank Group.
 - OpenStreetMap contributors.
