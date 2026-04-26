@@ -183,8 +183,9 @@ description.onAdd = function(map) {
     '&eta; = 18% &nbsp;&middot;&nbsp; PR = 0.75 &nbsp;&middot;&nbsp; ' +
     'GHI = 1,684 kWh/m&sup2;/yr &nbsp;&middot;&nbsp; Min area = 30 m&sup2;<br>' +
     'n = 47,472 buildings &nbsp;&middot;&nbsp; Total = 1,377 GWh/yr<br>' +
-    'Methodology adapted from Grinberg (2022) &mdash; Rosario, Argentina</p>' +
-    '<p style="color:#a3c2c2;font-size:10px"><i>Map created by [Your Name]</i></p>';
+    ''Methodology: <a href="https://docs.nrel.gov/docs/fy16osti/65298.pdf" target="_blank">Gagnon et al. (2016)</a> &amp; ' +
+'<a href="https://bookdown.org/einavg7/sp_technical_guide/" target="_blank">Grinberg (2022)</a></p>' +</p>' +
+    '<p style="color:#a3c2c2;font-size:10px"><i>Map created to support project  [SV 2026_31]</i></p>';
   return div;
 };
 description.addTo(map);
