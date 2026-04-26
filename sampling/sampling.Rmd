@@ -1,0 +1,323 @@
+---
+title: "Da Nang, Vietnam — Rooftop Solar PV Potential: Sampling Analysis"
+author: "[Your Name]"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+library(dplyr)
+library(sf)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+```
+
+## 1. Introduction
+
+This analysis estimates the total rooftop solar PV electricity production
+potential for Da Nang, Vietnam using spatial sampling methods.
+The methodology follows Grinberg (2022) applied to Rosario, Argentina,
+adapted for the Vietnamese urban context.
+
+**Data sources:**
+- Building footprints: OpenStreetMap via Geofabrik
+- Solar irradiation: Global Solar Atlas v2 (GHI, kWh/m²/yr)
+- Land cover strata: Copernicus LULC 2015 (100m)
+
+**Parameters:**
+- Panel efficiency (η): 18%
+- Performance ratio (PR): 0.75
+- Density factor: buildings ≤ 30 m² → elec_prod = 0
+
+---
+
+## 2. Load Data
+
+```{r load-data}
+# Load shapefile exported from QGIS/Colab
+buildings <- read_sf("../data/danang_solar.shp")
+
+# Reproject to Mercator (consistent with Rosario methodology)
+buildings <- st_transform(buildings,
+  "+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+)
+
+# Apply density factor
+buildings$elec_mwh[buildings$area_m2 <= 30] <- 0
+buildings$elec_prod[buildings$area_m2 <= 30] <- 0
+
+cat("Total buildings:", nrow(buildings), "\n")
+cat("Columns:", paste(names(buildings), collapse=", "), "\n")
+```
+
+```{r overview-table}
+# Summary table
+summary_df <- data.frame(
+  Metric  = c("Total buildings", "Buildings with area > 30m²",
+              "Total roof area (km²)", "Mean GHI (kWh/m²/yr)",
+              "Built-up stratum", "Non built-up stratum"),
+  Value   = c(
+    format(nrow(buildings), big.mark=","),
+    format(sum(buildings$area_m2 > 30), big.mark=","),
+    round(sum(buildings$area_m2)/1e6, 2),
+    round(mean(buildings$ghi_mean, na.rm=TRUE), 1),
+    format(sum(buildings$landuse=="built_up"), big.mark=","),
+    format(sum(buildings$landuse=="non_built_up"), big.mark=",")
+  )
+)
+kable(summary_df, caption="Da Nang Building Stock Summary") %>%
+  kable_styling(bootstrap_options=c("striped","hover"), full_width=FALSE)
+```
+
+---
+
+## 3. Building Area Distribution
+
+```{r area-dist, fig.width=10, fig.height=5}
+p1 <- ggplot(buildings %>% filter(area_m2 <= 1000),
+             aes(x=area_m2)) +
+  geom_histogram(bins=60, fill="#FFAA00", color="white", linewidth=0.2) +
+  geom_vline(aes(xintercept=median(area_m2)),
+             color="#E8593C", linewidth=1.2, linetype="dashed") +
+  annotate("text",
+    x=median(buildings$area_m2)+40, y=Inf, vjust=2,
+    label=paste0("Median: ", round(median(buildings$area_m2),1), " m²"),
+    color="#E8593C", size=3.5) +
+  labs(
+    title="Building Footprint Area Distribution — Da Nang",
+    subtitle=paste0("n = ", format(nrow(buildings),big.mark=","),
+                    " buildings (clipped at 1,000 m²)"),
+    x="Building Footprint Area (m²)", y="Count"
+  ) +
+  theme_minimal(base_size=11) +
+  theme(plot.title=element_text(face="bold"),
+        panel.grid.minor=element_blank())
+print(p1)
+```
+
+---
+
+## 4. METHOD 1 — Census
+
+```{r census}
+N <- nrow(buildings)
+total_census <- sum(buildings$elec_mwh, na.rm=TRUE)
+
+cat("=== CENSUS ===\n")
+cat("Population N       :", format(N, big.mark=","), "buildings\n")
+cat("Total elec (MWh/yr):", format(round(total_census,2), big.mark=","), "\n")
+cat("Total elec (GWh/yr):", round(total_census/1000, 2), "\n")
+```
+
+---
+
+## 5. METHOD 2 — Random Sampling
+
+```{r sample-size}
+# Cochran formula — same as Rosario
+Z  <- 1.96   # 95% CI
+p  <- 0.5    # max variability
+e  <- 0.05   # 5% margin of error
+n0 <- (Z^2 * p * (1-p)) / e^2
+cat("Cochran formula: n0 =", ceiling(n0), "\n")
+n_sample <- 384
+cat("Using: n =", n_sample, "\n")
+```
+
+```{r random-sampling}
+set.seed(42)
+sample_rand <- buildings %>% sample_n(n_sample)
+
+# Statistics
+y_bar    <- mean(sample_rand$elec_mwh, na.rm=TRUE)
+s2       <- var(sample_rand$elec_mwh, na.rm=TRUE)
+n        <- nrow(sample_rand)
+
+# Variance of sample mean (finite population correction)
+var_ybar <- ((N - n) / N) * (s2 / n)
+
+# Estimated total t̂ = N × ȳ
+t_hat    <- N * y_bar
+t_var    <- N^2 * var_ybar
+set_tot  <- sqrt(t_var)
+
+# 95% CI
+CI_rand  <- t_hat + qt(c(0.025, 0.975), df=n-1) * set_tot
+
+cat("=== RANDOM SAMPLING (n=384) ===\n")
+cat("Sample mean (ȳ)  :", round(y_bar, 4), "MWh\n")
+cat("Estimated total  :", round(t_hat, 1), "MWh/yr\n")
+cat("              =  :", round(t_hat/1000, 2), "GWh/yr\n")
+cat("95% CI           : [", round(CI_rand[1]/1000,2),
+    ",", round(CI_rand[2]/1000,2), "] GWh/yr\n")
+```
+
+---
+
+## 6. METHOD 3 — Stratified Sampling
+
+Strata based on Copernicus LULC 2015:
+- **Stratum 1 (Built-up):** pixels 50–60 → urban areas
+- **Stratum 2 (Non built-up):** all other pixels
+
+```{r strata-overview}
+strata_bu    <- buildings %>% filter(landuse == "built_up")
+strata_nonbu <- buildings %>% filter(landuse == "non_built_up")
+
+N1 <- nrow(strata_bu)
+N2 <- nrow(strata_nonbu)
+
+cat("Stratum 1 — Built-up    :", format(N1, big.mark=","), "buildings\n")
+cat("Stratum 2 — Non built-up:", format(N2, big.mark=","), "buildings\n")
+```
+
+```{r strata-viz, fig.width=8, fig.height=4}
+strata_sum <- buildings %>%
+  group_by(landuse) %>%
+  summarise(
+    n_buildings = n(),
+    total_gwh   = sum(elec_mwh, na.rm=TRUE)/1000,
+    .groups="drop"
+  ) %>%
+  mutate(landuse = ifelse(landuse=="built_up",
+                          "Built-up\n(pixel 50-60)",
+                          "Non built-up\n(other pixels)"))
+
+ggplot(strata_sum, aes(x=landuse, y=total_gwh, fill=landuse)) +
+  geom_col(width=0.5, color="#333", linewidth=0.4) +
+  geom_text(aes(label=paste0(round(total_gwh,1)," GWh\n(n=",
+                              format(n_buildings,big.mark=","),")")),
+            vjust=-0.3, size=3.5, fontface="bold") +
+  scale_fill_manual(values=c("#FFAA00","#B0D4A0")) +
+  labs(title="Solar Potential by Stratum — Da Nang",
+       x=NULL, y="Total Electricity Potential (GWh/yr)") +
+  theme_minimal(base_size=11) +
+  theme(legend.position="none",
+        plot.title=element_text(face="bold"),
+        panel.grid.major.x=element_blank())
+```
+
+### 6a. Equal Size Stratification (60 per stratum)
+
+```{r equal-strat}
+calc_stratum <- function(samp, N_s) {
+  n_s  <- nrow(samp)
+  ybar <- mean(samp$elec_mwh, na.rm=TRUE)
+  s2   <- var(samp$elec_mwh, na.rm=TRUE)
+  tot  <- N_s * ybar
+  varT <- N_s^2 * ((N_s-n_s)/N_s) * (s2/n_s)
+  list(n=n_s, mean=ybar, total=tot, var_total=varT)
+}
+
+set.seed(42)
+s1_eq <- strata_bu    %>% sample_n(min(60, N1))
+s2_eq <- strata_nonbu %>% sample_n(min(60, N2))
+
+r1 <- calc_stratum(s1_eq, N1)
+r2 <- calc_stratum(s2_eq, N2)
+
+t_eq  <- r1$total + r2$total
+se_eq <- sqrt(r1$var_total + r2$var_total)
+CI_eq <- t_eq + qt(c(0.025,0.975), df=nrow(s1_eq)+nrow(s2_eq)-2) * se_eq
+
+cat("=== EQUAL STRATIFICATION (60+60=120) ===\n")
+cat("Estimated total:", round(t_eq,1), "MWh/yr =",
+    round(t_eq/1000,2), "GWh/yr\n")
+cat("95% CI: [", round(CI_eq[1]/1000,2),
+    ",", round(CI_eq[2]/1000,2), "] GWh/yr\n")
+```
+
+### 6b. Optimal Allocation Stratification
+
+```{r optimal-strat}
+set.seed(42)
+s1_op <- strata_bu    %>% sample_n(min(95, N1))
+s2_op <- strata_nonbu %>% sample_n(min(5,  N2))
+
+r1o <- calc_stratum(s1_op, N1)
+r2o <- calc_stratum(s2_op, N2)
+
+t_op  <- r1o$total + r2o$total
+se_op <- sqrt(r1o$var_total + r2o$var_total)
+CI_op <- t_op + qt(c(0.025,0.975), df=nrow(s1_op)+nrow(s2_op)-2) * se_op
+
+cat("=== OPTIMAL STRATIFICATION (95+5=100) ===\n")
+cat("Estimated total:", round(t_op,1), "MWh/yr =",
+    round(t_op/1000,2), "GWh/yr\n")
+cat("95% CI: [", round(CI_op[1]/1000,2),
+    ",", round(CI_op[2]/1000,2), "] GWh/yr\n")
+```
+
+---
+
+## 7. Comparison of Methods
+
+```{r comparison, fig.width=9, fig.height=5}
+results <- data.frame(
+  Method = c(
+    "Census",
+    "Random\n(n=384)",
+    "Stratified Equal\n(n=120)",
+    "Stratified Optimal\n(n=100)"
+  ),
+  GWh     = c(total_census/1000,
+               t_hat/1000,
+               t_eq/1000,
+               t_op/1000),
+  CI_low  = c(NA, CI_rand[1]/1000, CI_eq[1]/1000, CI_op[1]/1000),
+  CI_high = c(NA, CI_rand[2]/1000, CI_eq[2]/1000, CI_op[2]/1000)
+)
+
+colors <- c("#1B3A6B","#FFAA00","#E8593C","#2E7D32")
+
+ggplot(results, aes(x=Method, y=GWh, fill=Method)) +
+  geom_col(width=0.6, color="#333", linewidth=0.4) +
+  geom_errorbar(aes(ymin=CI_low, ymax=CI_high),
+                width=0.2, color="#333", linewidth=0.8, na.rm=TRUE) +
+  geom_text(aes(label=paste0(round(GWh,1)," GWh")),
+            vjust=-0.5, size=3.5, fontface="bold") +
+  scale_fill_manual(values=colors) +
+  labs(
+    title="Rooftop Solar PV Potential — Da Nang, Vietnam",
+    subtitle="Comparison of estimation methods (95% CI for sampling methods)",
+    x=NULL, y="Electricity Production Potential (GWh/yr)",
+    caption="η = 18%  ·  PR = 0.75  ·  GHI = 1,684 kWh/m²/yr"
+  ) +
+  theme_minimal(base_size=11) +
+  theme(legend.position="none",
+        plot.title=element_text(face="bold"),
+        panel.grid.major.x=element_blank(),
+        panel.grid.minor=element_blank())
+```
+
+```{r results-table}
+results_tbl <- data.frame(
+  Method          = results$Method,
+  `GWh/yr`        = round(results$GWh, 2),
+  `CI Lower (GWh)`= round(results$CI_low, 2),
+  `CI Upper (GWh)`= round(results$CI_high, 2)
+)
+kable(results_tbl, caption="Summary: All Estimation Methods",
+      col.names=c("Method","Est. Total (GWh/yr)",
+                  "95% CI Lower","95% CI Upper")) %>%
+  kable_styling(bootstrap_options=c("striped","hover"), full_width=FALSE) %>%
+  row_spec(1, bold=TRUE, background="#e8f0ff")
+```
+
+---
+
+## 8. References
+
+- Grinberg, E. (2022). *Estimating building rooftop solar potential in a city
+  from a developing country*. MSc Thesis.
+- Thompson, S. K. (2012). *Sampling* (3rd ed.). Wiley.
+- Global Solar Atlas 2.0, World Bank Group.
+- OpenStreetMap contributors, Geofabrik.
+- Copernicus Land Monitoring Service, LULC 2015.

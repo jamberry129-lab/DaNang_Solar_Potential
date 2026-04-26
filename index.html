@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Da Nang, Vietnam Building Rooftop Solar Potential</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+<!-- Leaflet — giống Rosario -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+<!-- jQuery — giống Rosario -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+
+<style>
+body { padding: 0; margin: 0; }
+html, body, #map { height: 100%; width: 100%; }
+
+.popup { text-align: center; }
+
+/* Legend — giống Rosario */
+.legend {
+  padding: 6px 8px;
+  background-color: rgba(255,255,255,0.8);
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  border-radius: 5px;
+}
+.legend i {
+  width: 18px;
+  height: 18px;
+  float: left;
+  margin-right: 8px;
+  opacity: 0.7;
+}
+div.legend.leaflet-control br { clear: both; }
+
+/* Description panel — giống Rosario */
+.description {
+  font-size: 12px;
+  line-height: 14px;
+  color: #333333;
+  font-family: 'Open Sans', Helvetica, sans-serif;
+  padding: 6px 10px;
+  background-color: rgba(245,245,220,0.9);
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  border-radius: 5px;
+  max-width: 300px;
+  border: 1px solid grey;
+}
+.description p { font-size: 12px; line-height: 16px; }
+.description h4 { margin: 4px 0; font-size: 13px; color: #1B3A6B; }
+</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<script>
+// ── Map setup ──
+var map = L.map('map', {
+  center: [16.05, 108.20],
+  zoom: 13,
+  scrollWheelZoom: true,
+  tap: true,
+});
+
+// ── Basemaps — giống Rosario ──
+var carto = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution">CARTO</a>'
+}).addTo(map);
+
+var osm = L.tileLayer(
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+});
+
+var imagery = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri'
+});
+
+// ── Color scale — 9 breaks quantile từ data thực tế ──
+var breaks = [
+  -Infinity,
+  6457.73, 8816.11, 11311.61, 14197.17,
+  17932.16, 22459.70, 30754.17, 55749.61,
+  Infinity
+];
+var colors = [
+  "#ffffcc","#ffeda0","#fed976","#feb24c",
+  "#fd8d3c","#fc4e2a","#e31a1c","#bd0026","#800026"
+];
+
+function build_color(d) {
+  if (!d || d <= 0) return "#cccccc";
+  for (var i = 0; i < breaks.length - 1; i++) {
+    if (d > breaks[i] && d <= breaks[i+1]) return colors[i];
+  }
+  return colors[colors.length - 1];
+}
+
+function build_style(feature) {
+  return {
+    fillColor  : build_color(feature.properties.elec_prod),
+    weight     : 0.5,
+    opacity    : 1,
+    color      : "black",
+    fillOpacity: 0.7
+  };
+}
+
+// ── Popup — giống Rosario ──
+function base_popup(feature, layer) {
+  var p = feature.properties;
+  layer.bindPopup(
+    '<p class="popup"><b>Building Name: </b>' + (p.name || 'N/A') + '</p>' +
+    '<p><b>Type of Building: </b>' + (p.type || 'N/A') + '</p>' +
+    '<p><b>Stratum: </b>' + (p.landuse === 'built_up' ? 'Built-up' : 'Non built-up') + '</p>' +
+    '<p><b>Area (m&sup2;): </b>' + (p.area_m2 ? parseFloat(p.area_m2).toLocaleString('en-US',{maximumFractionDigits:1}) : 'N/A') + '</p>' +
+    '<p><b>Mean GHI (kWh/m&sup2;/yr): </b>' + (p.ghi_mean ? parseFloat(p.ghi_mean).toLocaleString('en-US',{maximumFractionDigits:1}) : 'N/A') + '</p>' +
+    '<p><b>Usable Solar Radiation (kWh): </b>' + (p.usable_sr ? parseFloat(p.usable_sr).toLocaleString('en-US',{maximumFractionDigits:0}) : 'N/A') + '</p>' +
+    '<p><b>Electricity Production (kWh/yr): </b>' + (p.elec_prod ? parseFloat(p.elec_prod).toLocaleString('en-US',{maximumFractionDigits:0}) : 'N/A') + '</p>'
+  );
+}
+
+// ── Load GeoJSON — dùng $.getJSON giống hệt Rosario ──
+$.getJSON('data/danang_solar.geojson', function(data) {
+  myLayer = L.geoJSON(data, {
+    style        : build_style,
+    onEachFeature: base_popup
+  }).addTo(map);
+});
+
+// ── Legend — giống Rosario ──
+var legend = L.control({ position: "topleft" });
+legend.onAdd = function(map) {
+  var div = L.DomUtil.create("div", "legend");
+  div.innerHTML =
+    '<b>Electricity Production (kWh/yr)</b><br>' +
+    '<i style="background:#cccccc"></i>No data (area &le; 30 m&sup2;)<br>' +
+    '<i style="background:#ffffcc"></i>1 &ndash; 6,458<br>' +
+    '<i style="background:#ffeda0"></i>6,458 &ndash; 8,816<br>' +
+    '<i style="background:#fed976"></i>8,816 &ndash; 11,312<br>' +
+    '<i style="background:#feb24c"></i>11,312 &ndash; 14,197<br>' +
+    '<i style="background:#fd8d3c"></i>14,197 &ndash; 17,932<br>' +
+    '<i style="background:#fc4e2a"></i>17,932 &ndash; 22,460<br>' +
+    '<i style="background:#e31a1c"></i>22,460 &ndash; 30,754<br>' +
+    '<i style="background:#bd0026"></i>30,754 &ndash; 55,750<br>' +
+    '<i style="background:#800026"></i>&gt; 55,750<br>';
+  return div;
+};
+legend.addTo(map);
+
+// ── Description panel — giống Rosario ──
+var description = L.control({ position: "topright" });
+description.onAdd = function(map) {
+  var div = L.DomUtil.create("div", "description");
+  div.innerHTML =
+    '<h4>&#9728; Da Nang, Vietnam Solar Potential Map</h4>' +
+    '<p>This web map displays the estimated electricity production potential ' +
+    'from rooftop solar PV for buildings in Da Nang, Vietnam.<br><br>' +
+    'Building footprints were collected from ' +
+    '<a href="https://www.openstreetmap.org" target="_blank">OpenStreetMap</a> ' +
+    'via <a href="https://www.geofabrik.de" target="_blank">Geofabrik</a>. ' +
+    'Solar potential was calculated using a global horizontal irradiance (GHI) layer ' +
+    'from the <a href="https://globalsolaratlas.info" target="_blank">Global Solar Atlas</a> ' +
+    '(World Bank). Land cover strata from ' +
+    '<a href="https://land.copernicus.eu" target="_blank">Copernicus LULC 2015</a>.</p>' +
+    '<p>By clicking the buildings you can see:<br>' +
+    '<ul>' +
+    '<li>Building Name</li>' +
+    '<li>Type of Building</li>' +
+    '<li>Land Cover Stratum (built-up / non built-up)</li>' +
+    '<li>Footprint Area (m&sup2;)</li>' +
+    '<li>Mean Annual GHI (kWh/m&sup2;/yr)</li>' +
+    '<li>Usable Solar Radiation (kWh) &mdash; area &times; GHI</li>' +
+    '<li>Electricity Production (kWh/yr) &mdash; usable SR &times; &eta; &times; PR</li>' +
+    '</ul></p>' +
+    '<p>Switch between CartoDB, OpenStreetMap and ESRI Imagery ' +
+    'using the layer control (top left).</p>' +
+    '<p style="color:#666;font-size:11px">' +
+    '&eta; = 18% &nbsp;&middot;&nbsp; PR = 0.75 &nbsp;&middot;&nbsp; ' +
+    'GHI = 1,684 kWh/m&sup2;/yr &nbsp;&middot;&nbsp; Min area = 30 m&sup2;<br>' +
+    'n = 47,472 buildings &nbsp;&middot;&nbsp; Total = 1,377 GWh/yr<br>' +
+    'Methodology adapted from Grinberg (2022) &mdash; Rosario, Argentina</p>' +
+    '<p style="color:#a3c2c2;font-size:10px"><i>Map created by [Your Name]</i></p>';
+  return div;
+};
+description.addTo(map);
+
+// ── Layer control — giống Rosario ──
+var baseMaps = {
+  "CartoDB Map"   : carto,
+  "OpenStreetMap" : osm,
+  "ESRI Imagery"  : imagery,
+};
+L.control.layers(baseMaps, {}, { position: "topleft" }).addTo(map);
+
+</script>
+</body>
+</html>
