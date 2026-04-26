@@ -1,6 +1,5 @@
 # Da Nang, Vietnam — Building Rooftop Solar Potential
-
-This repository contains a rooftop solar PV potential analysis for **Da Nang, Vietnam**.  
+ 
 This repository contains a rooftop solar PV potential analysis for **Da Nang, Vietnam**.  
 The analysis adapts the spatial sampling methodology introduced by 
 [Gagnon et al. (2016)](https://docs.nrel.gov/docs/fy16osti/65298.pdf) 
